@@ -1,0 +1,35 @@
+{
+  "entities": {
+    "BookAnalysis": {
+      "title": "Book Analysis",
+      "description": "A saved book analysis result",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "The ID of the user who saved this analysis" },
+        "title": { "type": "string", "description": "The title of the book" },
+        "introduction": { "type": "string" },
+        "summary": { "type": "string" },
+        "detailedSummary": { "type": "string" },
+        "keyIdeas": { "type": "array", "items": { "type": "string" } },
+        "podcastScript": { "type": "string" },
+        "insights": { "type": "array", "items": { "type": "string" } },
+        "contentIdeas": {
+          "type": "object",
+          "properties": {
+            "tiktok": { "type": "array", "items": { "type": "string" } },
+            "youtube": { "type": "array", "items": { "type": "string" } },
+            "blog": { "type": "array", "items": { "type": "string" } }
+          }
+        },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "title", "summary", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/analyses/{analysisId}": {
+      "schema": "BookAnalysis",
+      "description": "Collection of saved book analyses"
+    }
+  }
+}

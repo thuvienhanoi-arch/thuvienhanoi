@@ -1,0 +1,101 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: analyses
+    // Document ID: auto-generated
+    // Fields:
+    //   - userId: string (required, immutable) - The owner of the analysis
+    //   - title: string (required) - Book title
+    //   - introduction: string
+    //   - summary: string (required)
+    //   - detailedSummary: string
+    //   - keyIdeas: list (strings)
+    //   - podcastScript: string
+    //   - insights: list (strings)
+    //   - contentIdeas: map (tiktok, youtube, blog lists)
+    //   - createdAt: timestamp (required, immutable)
+    //
+    // Collection: users
+    // Document ID: auth.uid
+    // Fields:
+    //   - name: string (required)
+    //   - email: string (required)
+    //   - photoURL: string
+    //   - role: string (required, 'admin' or 'user')
+    //   - updatedAt: timestamp (required)
+    //
+    // ===============================================================
+
+    // Helper Functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() &&
+        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
+          (request.auth.token.email == "ttvhtphn@gmail.com" && request.auth.token.email_verified == true)); // Default admin
+    }
+
+    function hasOnlyAllowedFields(fields) {
+      return request.resource.data.keys().hasOnly(fields);
+    }
+
+    function validStringLength(field, minLen, maxLen) {
+      return request.resource.data[field] is string &&
+        request.resource.data[field].size() >= minLen &&
+        request.resource.data[field].size() <= maxLen;
+    }
+
+    function isValidAnalysis(data) {
+      let allowedFields = ['userId', 'title', 'introduction', 'summary', 'detailedSummary', 'keyIdeas', 'podcastScript', 'insights', 'contentIdeas', 'createdAt', 'imageUrl', 'podcastCovers', 'facebookPost'];
+      
+      return hasOnlyAllowedFields(allowedFields) &&
+             data.userId is string &&
+             data.title is string && data.title.size() > 0 && data.title.size() < 500 &&
+             data.summary is string && data.summary.size() > 0 && data.summary.size() < 10000 &&
+             data.createdAt is timestamp &&
+             (!('introduction' in data) || (data.introduction is string && data.introduction.size() < 5000)) &&
+             (!('detailedSummary' in data) || (data.detailedSummary is string && data.detailedSummary.size() < 50000)) &&
+             (!('podcastScript' in data) || (data.podcastScript is string && data.podcastScript.size() < 50000)) &&
+             (!('keyIdeas' in data) || (data.keyIdeas is list && data.keyIdeas.size() < 50)) &&
+             (!('insights' in data) || (data.insights is list && data.insights.size() < 50)) &&
+             (!('contentIdeas' in data) || (data.contentIdeas is map && data.contentIdeas.keys().hasOnly(['tiktok', 'youtube', 'blog']))) &&
+             (!('imageUrl' in data) || (data.imageUrl is string && data.imageUrl.size() < 2000)) &&
+             (!('podcastCovers' in data) || (data.podcastCovers is list && data.podcastCovers.size() < 10)) &&
+             (!('facebookPost' in data) || (data.facebookPost is string && data.facebookPost.size() < 10000));
+    }
+
+    function isValidUser(data) {
+      return data.keys().hasOnly(['name', 'email', 'photoURL', 'role', 'updatedAt']) &&
+             data.name is string && data.name.size() > 0 && data.name.size() < 100 &&
+             data.email is string && data.email.matches("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$") &&
+             data.role in ['admin', 'user'];
+    }
+
+    match /analyses/{analysisId} {
+      allow read: if isAuthenticated() && (isOwner(resource.data.userId) || isAdmin());
+      allow create: if isAuthenticated() && isOwner(request.resource.data.userId) && isValidAnalysis(request.resource.data);
+      allow update: if isAuthenticated() && (isOwner(resource.data.userId) || isAdmin()) && 
+                      isValidAnalysis(request.resource.data) &&
+                      request.resource.data.userId == resource.data.userId &&
+                      request.resource.data.createdAt == resource.data.createdAt;
+      allow delete: if isAuthenticated() && (isOwner(resource.data.userId) || isAdmin());
+    }
+
+    match /users/{userId} {
+      allow read: if isAuthenticated() && (isOwner(userId) || isAdmin());
+      allow create: if isAuthenticated() && isOwner(userId) && isValidUser(request.resource.data) && request.resource.data.role == 'user';
+      allow update: if isAuthenticated() && ((isOwner(userId) && isValidUser(request.resource.data) && request.resource.data.role == resource.data.role) || isAdmin());
+      allow delete: if isAuthenticated() && isAdmin();
+    }
+  }
+}

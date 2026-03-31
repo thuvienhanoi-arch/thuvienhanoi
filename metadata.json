@@ -1,0 +1,8 @@
+{
+  "name": "Remix: Thư Viện AI \u0026 Podcast Sách",
+  "description": "Premium AI web app for cinematic book summaries, podcast scripts, and AI-generated podcast covers.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}
